@@ -1,0 +1,159 @@
+﻿@model GamingAppPractice.Models.Gamer
+
+@{
+    ViewData["Title"] = "Create";
+}
+
+<h1>Create</h1>
+
+<h4>Gamer</h4>
+<hr />
+<div class="row">
+    <div class="col-md-4">
+        <form asp-action="Create">
+            <div asp-validation-summary="ModelOnly" class="text-danger"></div>
+
+            <div class="form-group">
+                <label asp-for="Name" class="control-label"></label>
+                <input asp-for="Name" class="form-control" />
+                <span asp-validation-for="Name" class="text-danger"></span>
+            </div>
+
+            <div class="form-group">
+                <label asp-for="Surname" class="control-label"></label>
+                <input asp-for="Surname" class="form-control" />
+                <span asp-validation-for="Surname" class="text-danger"></span>
+            </div>
+
+            <div class="form-group position-relative">
+                <label asp-for="Location" class="control-label"></label>
+                <input asp-for="Location" class="form-control" id="locationInput" autocomplete="off" />
+                <div id="suggestions" style="position:absolute; top:100%; left:0; right:0; z-index:1000; background:white; border:1px solid #ccc; max-height:150px; overflow-y:auto;"></div>
+                <span asp-validation-for="Location" class="text-danger"></span>
+            </div>
+
+            <input type="hidden" name="Latitude" id="Latitude" />
+            <input type="hidden" name="Longitude" id="Longitude" />
+
+            <button type="button" onclick="findLocation()" class="btn btn-secondary mt-2 mb-2">Show on Map</button>
+
+            <div id="map" style="height: 400px; margin-top: 10px;"></div>
+
+            <div class="form-group">
+                <label asp-for="InGameName" class="control-label"></label>
+                <input asp-for="InGameName" class="form-control" />
+                <span asp-validation-for="InGameName" class="text-danger"></span>
+            </div>
+
+            <div class="form-group">
+                <input type="submit" value="Create" class="btn btn-primary" />
+            </div>
+        </form>
+    </div>
+</div>
+
+<div>
+    <a asp-action="Index">Back to List</a>
+</div>
+
+@section Scripts {
+    @{
+        await Html.RenderPartialAsync("_ValidationScriptsPartial");
+    }
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+
+    <script>
+        var map = L.map('map').setView([0, 0], 2);
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+            maxZoom: 18,
+            attribution: '© OpenStreetMap contributors'
+        }).addTo(map);
+        var marker;
+
+        // Existing findLocation function (button)
+        function findLocation() {
+            var address = document.getElementById("locationInput").value;
+            if (!address) return;
+            fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(address)}&limit=1&countrycodes=za`)
+                .then(response => response.json())
+                .then(data => {
+                    if (data.length > 0) {
+                        var lat = parseFloat(data[0].lat);
+                        var lon = parseFloat(data[0].lon);
+
+                        document.getElementById("Latitude").value = lat;
+                        document.getElementById("Longitude").value = lon;
+
+                        if (marker) map.removeLayer(marker);
+                        marker = L.marker([lat, lon]).addTo(map).bindPopup(address).openPopup();
+                        map.setView([lat, lon], 13);
+                    } else {
+                        alert("Location not found.");
+                    }
+                });
+        }
+
+        // Autocomplete suggestions
+        const locationInput = document.getElementById('locationInput');
+        const suggestionsDiv = document.getElementById('suggestions');
+        const latInput = document.getElementById('Latitude');
+        const lonInput = document.getElementById('Longitude');
+
+        locationInput.addEventListener('input', function () {
+            const query = this.value.trim();
+            if (query.length < 3) {
+                suggestionsDiv.innerHTML = '';
+                return;
+            }
+
+            // Fetch suggestions from Nominatim, limited to South Africa (country code: za)
+            fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(query)}&addressdetails=1&limit=5&countrycodes=za`)
+                .then(response => response.json())
+                .then(results => {
+                    suggestionsDiv.innerHTML = '';
+                    if (results.length === 0) {
+                        suggestionsDiv.innerHTML = '<div style="padding:5px;">No results found</div>';
+                        return;
+                    }
+
+                    results.forEach(place => {
+                        const div = document.createElement('div');
+                        div.textContent = place.display_name;
+                        div.style.padding = "5px";
+                        div.style.cursor = "pointer";
+
+                        div.addEventListener('click', () => {
+                            locationInput.value = place.display_name;
+                            latInput.value = place.lat;
+                            lonInput.value = place.lon;
+
+                            // Update map with marker
+                            const latLng = [parseFloat(place.lat), parseFloat(place.lon)];
+                            map.setView(latLng, 13);
+
+                            if (marker) {
+                                marker.setLatLng(latLng);
+                            } else {
+                                marker = L.marker(latLng).addTo(map);
+                            }
+
+                            suggestionsDiv.innerHTML = '';
+                        });
+
+                        suggestionsDiv.appendChild(div);
+                    });
+                })
+                .catch(() => {
+                    suggestionsDiv.innerHTML = '<div style="padding:5px;">Error loading suggestions</div>';
+                });
+        });
+
+        // Close suggestions dropdown if clicking outside
+        document.addEventListener('click', function (e) {
+            if (!locationInput.contains(e.target) && !suggestionsDiv.contains(e.target)) {
+                suggestionsDiv.innerHTML = '';
+            }
+        });
+    </script>
+}
