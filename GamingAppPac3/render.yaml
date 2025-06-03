@@ -1,8 +1,0 @@
-services:
-  - type: web
-    name: gaming-app
-    env: docker
-    region: frankfurt
-    plan: free
-    dockerfilePath: ./Dockerfile
-    autoDeploy: true
